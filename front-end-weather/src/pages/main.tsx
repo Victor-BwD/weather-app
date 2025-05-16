@@ -23,28 +23,40 @@ import parcialmenteNubladoIcon from "../assets/parcialmente-nublado-icon.png";
 import mostlyClear from "../assets/mostly-clear-icon.png";
 import sunnyBg from "../assets/wallpaper-sunny.png";
 import cloudyBg from "../assets/wallpaper-cloudy.png";
+import snowbg from "../assets/snow-wallpaper.png";
+import coldRainbg from "../assets/cold-rain-wallpaper.png";
 import nightBg from "../assets/night-clean-wallpaper.png";
 import cloudyNightBg from "../assets/cloudy-night-wallpaper.png";
 import rainbg from "../assets/rain-wallpaper.png";
 import { getWeatherByCity } from "../api/weatherApi";
 import { WeatherAPIResponse } from "../types/weatherTypes";
-import { convertToLocalTime, getWeatherCondition } from "../utils/services";
-
-const currentWeatherMock = {
-  data: {
-    values: {
-      temperature: 72,
-      weatherCode: 1100,
-      windSpeed: 12,
-      humidity: 50,
-    },
-  },
-};
+import {
+  adaptConditionForNight,
+  convertToLocalTime,
+  getWeatherCondition,
+  isNightTimeNow,
+} from "../utils/services";
 
 const weatherBackgrounds: Record<number, string> = {
   1100: sunnyBg, // Ensolarado
+  1000: sunnyBg, // Limpo
+  1101: sunnyBg, // Limpo
+  1102: sunnyBg, // Limpo
+  1103: sunnyBg, // Limpo
   1001: cloudyBg, // Nublado
   2000: cloudyNightBg, // Noite nublada
+  4000: rainbg, // Chuva
+  4001: rainbg, // Chuva
+  4201: rainbg, // Chuva
+  4200: rainbg, // Chuva
+  5000: snowbg, // Neve
+  5001: snowbg, // Neve
+  5100: snowbg, // Neve
+  5101: snowbg, // Neve
+  6000: coldRainbg, // Chuva congelante
+  6001: coldRainbg, // Chuva congelante
+  6200: coldRainbg, // Chuva congelante
+  6201: coldRainbg, // Chuva congelante
 };
 
 const weatherCodeToIcon: Record<number, string> = {
@@ -87,14 +99,34 @@ export default function WeatherApp() {
   const sunrise = new Date(dailyValues.sunriseTime);
   const sunset = new Date(dailyValues.sunsetTime);
 
+  const now = new Date();
+  const isNightTime = now < sunrise || now > sunset;
+
   useEffect(() => {
     const fetchWeather = async () => {
       try {
-        const data = await getWeatherByCity("Taquara", "BR");
+        const data = await getWeatherByCity("Porto Alegre", "RS", "BR");
         setWeather(data);
 
-        const weatherCode = data?.data?.values?.weatherCode || 1001;
-        setBackgroundImage(weatherBackgrounds[weatherCode] || sunnyBg);
+        const weatherCode =
+          data.timelines.daily[0].values.weatherCodeMax || 1001;
+        const sunriseTime = new Date(
+          data.timelines.daily[0].values.sunriseTime
+        );
+        const sunsetTime = new Date(data.timelines.daily[0].values.sunsetTime);
+        const now = new Date();
+
+        const isNightTime = now < sunriseTime || now > sunsetTime;
+
+        if (isNightTime) {
+          const nightBgToUse =
+            weatherCode === 1001 || weatherCode === 1101 || weatherCode === 1102
+              ? cloudyNightBg
+              : nightBg;
+          setBackgroundImage(nightBgToUse);
+        } else {
+          setBackgroundImage(weatherBackgrounds[weatherCode] || sunnyBg);
+        }
       } catch (error) {
         console.error("Erro ao carregar clima:", error);
       }
@@ -103,7 +135,6 @@ export default function WeatherApp() {
     fetchWeather();
   }, []);
 
-  // Simulando um efeito de carregamento
   React.useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
@@ -119,13 +150,17 @@ export default function WeatherApp() {
     );
   }
 
-  // Dados atuais e forecast
-  const currentWeather = currentWeatherMock;
+  const currentIcon = isNightTime
+    ? moonIcon
+    : weatherCodeToIcon[
+        weather?.timelines.daily[0].values.weatherCodeMax ?? 1001
+      ];
 
-  const currentIcon =
-    weatherCodeToIcon[
-      weather?.timelines.daily[0].values.weatherCodeMax ?? 1001
-    ];
+  const values = weather.timelines.daily[0].values;
+  const condition = getWeatherCondition(values);
+  const night = isNightTimeNow(new Date(sunrise), new Date(sunset));
+
+  const displayCondition = adaptConditionForNight(condition, night);
 
   return (
     <Box
@@ -145,14 +180,12 @@ export default function WeatherApp() {
           {Math.round(weather?.timelines.daily[0].values.temperatureAvg ?? 0)}°
         </Text>
         <Image src={currentIcon} alt="Weather Icon" boxSize="100px" />
-        <Text fontSize="3xl">
-          {getWeatherCondition(weather.timelines.daily[0].values)}
+        <Text fontSize="3xl">{displayCondition}</Text>
+        <Text fontSize="md">
+          Vento: {weather?.timelines.daily[0].values.windSpeedAvg} mph
         </Text>
         <Text fontSize="md">
-          Wind: {currentWeather.data.values.windSpeed} mph
-        </Text>
-        <Text fontSize="md">
-          Humidity: {currentWeather.data.values.humidity}%
+          Humidade: {weather?.timelines.daily[0].values.humidityAvg}%
         </Text>
       </VStack>
 

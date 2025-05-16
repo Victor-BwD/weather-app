@@ -28,3 +28,24 @@ export function isNightTimeNow(sunrise: Date, sunset: Date): boolean {
     const now = new Date();
     return now < sunrise || now > sunset;
   }
+
+  export function adaptConditionForNight(condition: string, isNight: boolean): string {
+  if (!isNight) return condition;
+
+  switch (condition) {
+    case "Ensolarado":
+    case "Céu limpo":
+      return "Noite limpa";
+    case "Chuvoso":
+    case "Chuva moderada":
+    case "Chuva fraca":
+      return "Noite chuvosa";
+    case "Nublado":
+    case "Predominantemente nublado":
+      return "Noite nublada";
+    case "Parcialmente nublado":
+      return "Noite parcialmente nublada";
+    default:
+      return condition;
+  }
+}
